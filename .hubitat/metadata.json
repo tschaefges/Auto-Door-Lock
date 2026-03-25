@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "filepath": "/d:/Hubitat/Auto Door Lock/AutoDoorLock-Parent.groovy",
+      "codeType": "app",
+      "id": 776,
+      "version": 1
+    },
+    {
+      "filepath": "/d:/Hubitat/Auto Door Lock/AutoDoorLock-Child.groovy",
+      "codeType": "app",
+      "id": 777,
+      "version": 1
+    }
+  ]
+}
