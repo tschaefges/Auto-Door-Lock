@@ -6,6 +6,13 @@
  * stays closed. If the door is opened, the lock remains unlocked.
  * When the door closes, the timer restarts. The timer is cancelled if
  * the lock is manually locked before the timer fires.
+ *
+ * Version History:
+ *   1.0.0 (2026-03-29) - Initial release. Core auto-lock logic with
+ *                         lock delay and contact sensor support.
+ *   1.1.0 (2026-03-29) - Added active mode support. App fully
+ *                         unsubscribes when mode goes inactive and
+ *                         re-evaluates device state on re-activation.
  */
 
 definition(
@@ -26,6 +33,8 @@ preferences {
     }
     section("Settings") {
         input "lockDelay", "number", title: "Lock Delay (minutes)", required: true, defaultValue: 5
+        paragraph "Use the selector below to restrict this lock to specific modes. The 'Set for specific modes' option at the bottom of this page is a Hubitat system feature -- leave it blank."
+        input "activeModes", "mode", title: "Run only in these modes (leave blank to run in all modes)", multiple: true, required: false
         input "debugLogging", "bool", title: "Enable Debug Logging", defaultValue: false
     }
 }
@@ -46,9 +55,36 @@ def updated() {
     initialize()
 }
 
+def isActiveMode() {
+    return !activeModes || activeModes.isEmpty() || activeModes.contains(location.mode)
+}
+
 def initialize() {
-    subscribe(lock, "lock", lockHandler)
-    subscribe(contact, "contact", contactHandler)
+    subscribe(location, "mode", modeHandler)
+    if (isActiveMode()) {
+        subscribe(lock, "lock", lockHandler)
+        subscribe(contact, "contact", contactHandler)
+    } else {
+        logDebug "${app.label}: Current mode (${location.mode}) is not active -- not subscribing"
+    }
+}
+
+// Called when the location mode changes
+def modeHandler(evt) {
+    if (isActiveMode()) {
+        logDebug "${app.label}: Mode changed to ${evt.value} -- activating"
+        subscribe(lock, "lock", lockHandler)
+        subscribe(contact, "contact", contactHandler)
+        if (contact.currentContact == "closed" && lock.currentLock == "unlocked") {
+            logDebug "${app.label}: Door closed and unlocked on activation -- starting lock timer"
+            startLockTimer()
+        }
+    } else {
+        logDebug "${app.label}: Mode changed to ${evt.value} -- deactivating"
+        unsubscribe(lock)
+        unsubscribe(contact)
+        unschedule(lockDoor)
+    }
 }
 
 // Called when the lock state changes
